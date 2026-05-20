@@ -31,10 +31,10 @@ RUN a2enmod rewrite
 
 RUN { \
     echo 'max_input_vars = 5000'; \
-    echo 'upload_max_filesize = 128M'; \
-    echo 'post_max_size = 128M'; \
-    echo 'max_execution_time = 300'; \
-    echo 'memory_limit = 256M'; \
+    echo 'upload_max_filesize = 512M'; \
+    echo 'post_max_size = 512M'; \
+    echo 'max_execution_time = 600'; \
+    echo 'memory_limit = 512M'; \
 } > /usr/local/etc/php/conf.d/moodle.ini
 
 COPY apache-moodle.conf /etc/apache2/sites-available/000-default.conf
