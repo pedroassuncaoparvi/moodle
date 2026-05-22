@@ -25,4 +25,7 @@ git clone https://github.com/catalyst/moodle-tool_objectfs.git public/admin/tool
 echo "→ Instalando AWS SDK..."
 git clone https://github.com/catalyst/moodle-local_aws.git public/local/aws
 
+echo "→ Instalando enrol_coursecompleted..."
+git clone https://github.com/ewallah/moodle-enrol_coursecompleted.git public/enrol/coursecompleted
+
 echo "✅ Todos os plugins instalados!"
