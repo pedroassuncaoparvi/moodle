@@ -54,7 +54,8 @@
         "ext-json": "*",
         "ext-hash": "*",
         "ext-fileinfo": "*",
-        "ext-sodium": "*"
+        "ext-sodium": "*",
+        "firebase/php-jwt": "^7.0"
     },
     "suggest": {
         "ext-mysqli": "Needed when Moodle uses MySQL or MariaDB database.",

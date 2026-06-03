@@ -1,48 +1,141 @@
-# Moodle
+# Moodle EAD Parvi
 
-<p align="center"><a href="https://moodle.org" target="_blank" title="Moodle Website">
-  <img src="https://raw.githubusercontent.com/moodle/moodle/main/.github/moodlelogo.svg" alt="The Moodle Logo">
-</a></p>
+Plataforma de ensino a distância da **Parvi**, baseada no [Moodle 5.0.1](https://moodle.org), containerizada com Docker e com plugins e integrações customizadas.
 
-[Moodle][1] is the World's Open Source Learning Platform, widely used around the world by countless universities, schools, companies, and all manner of organisations and individuals.
+---
 
-Moodle is designed to allow educators, administrators and learners to create personalised learning environments with a single robust, secure and integrated system.
+## Stack
 
-## Documentation
+| Componente | Tecnologia |
+|---|---|
+| Linguagem | PHP 8.2 |
+| Servidor | Apache (mod_rewrite) |
+| Banco de dados | MariaDB 10.11 |
+| Armazenamento de arquivos | ObjectFS (S3 / MinIO) |
+| Containerização | Docker + Docker Compose |
 
-- Read our [User documentation][3]
-- Discover our [developer documentation][5]
-- Take a look at our [demo site][4]
+---
 
-## Community
+## Estrutura do projeto
 
-[moodle.org][1] is the central hub for the Moodle Community, with spaces for educators, administrators and developers to meet and work together.
+```
+moodle-ead/
+├── public/               # Código-fonte do Moodle (document root)
+│   ├── theme/moove/      # Tema Moove (externo, instalado via install-plugins.sh)
+│   ├── mod/hvp/          # Plugin HVP/H5P
+│   ├── mod/simplecertificate/
+│   ├── admin/tool/objectfs/
+│   ├── local/aws/        # SDK AWS (dependência do ObjectFS)
+│   └── enrol/coursecompleted/
+├── local/
+│   ├── middleware_trigger/  # Plugin customizado — gatilho de conclusão de curso
+│   └── kopere_dashboard/    # Dashboard administrativo
+├── Dockerfile
+├── docker-compose.yml
+├── apache-moodle.conf
+├── config.php            # Configuração principal do Moodle
+├── .env                  # Variáveis de ambiente (não commitar valores reais)
+└── install-plugins.sh    # Script para clonar plugins externos
+```
 
-You may also be interested in:
+---
 
-- attending a [Moodle Moot][6]
-- our regular series of [developer meetings][7]
-- the [Moodle User Association][8]
+## Plugins
 
-## Installation and hosting
+### Externos (instalados via `install-plugins.sh`)
 
-Moodle is Free, and Open Source software. You can easily [download Moodle][9] and run it on your own web server, however you may prefer to work with one of our experienced [Moodle Partners][10].
+| Plugin | Descrição |
+|---|---|
+| `theme/moove` | Tema visual responsivo |
+| `mod/hvp` | Conteúdo interativo H5P |
+| `mod/simplecertificate` | Emissão de certificados |
+| `admin/tool/objectfs` | Armazenamento de arquivos em S3/MinIO |
+| `local/aws` | SDK AWS (dependência do ObjectFS) |
+| `enrol/coursecompleted` | Matrícula automática ao concluir outro curso |
 
-Moodle also offers hosting through both [MoodleCloud][11], and our [partner network][10].
+### Customizados (neste repositório)
 
-## License
+#### `local/middleware_trigger`
 
-Moodle is provided freely as open source software, under version 3 of the GNU General Public License. See our [license page][12] for more information.
+Escuta o evento `\core\event\course_completed` e dispara um webhook POST para o middleware Node.js, enviando `userid` e `courseid`. Usado para acionar automações externas (ex.: emissão de certificados, notificações, integração com CRM).
 
-[1]: https://moodle.org
-[2]: https://moodle.com
-[3]: https://docs.moodle.org/
-[4]: https://sandbox.moodledemo.net/
-[5]: https://moodledev.io
-[6]: https://moodle.com/events/mootglobal/
-[7]: https://moodledev.io/general/community/meetings
-[8]: https://moodleassociation.org/
-[9]: https://download.moodle.org
-[10]: https://moodle.com/partners
-[11]: https://moodle.com/cloud
-[12]: https://moodledev.io/general/license
+Configuração via `config.php` (lido do `.env`):
+- `$CFG->middleware_url` → URL do endpoint webhook
+- `$CFG->middleware_token` → Token Bearer para autenticação
+
+#### `local/kopere_dashboard`
+
+Dashboard administrativo com relatórios e visão gerencial da plataforma.
+
+---
+
+## Configuração de ambiente
+
+Crie ou edite o arquivo `.env` na raiz do projeto:
+
+```env
+MIDDLEWARE_URL=http://host.docker.internal:4040/webhook/moodle-completion
+MIDDLEWARE_BEARER_TOKEN=seu_token_aqui
+```
+
+> O `config.php` lê essas variáveis com `getenv()` e as expõe em `$CFG->middleware_url` e `$CFG->middleware_token`.
+
+---
+
+## Setup inicial
+
+### 1. Instalar plugins externos
+
+```bash
+bash install-plugins.sh
+```
+
+Clona os plugins para dentro de `public/` (theme, mod, admin/tool, enrol, local).
+
+### 2. Subir os containers
+
+```bash
+docker-compose up -d --build
+```
+
+Serviços iniciados:
+- `moodle-web` — Apache + PHP 8.2 na porta **8080**
+- `moodle-db` — MariaDB 10.11 na porta **3306**
+
+### 3. Instalar o banco de dados
+
+Aguarde ~10 segundos para o MariaDB inicializar, depois execute:
+
+```bash
+docker exec -it moodle-web php /var/www/html/admin/cli/install_database.php \
+  --adminpass=Admin@123 \
+  --adminemail=admin@parvi.com.br \
+  --fullname='EAD Parvi' \
+  --shortname='EAD Parvi' \
+  --agree-license
+```
+
+### 4. Acessar a plataforma
+
+Abra [http://localhost:8080](http://localhost:8080) no navegador.
+
+---
+
+## Comandos úteis
+
+```bash
+# Ver logs do servidor web
+docker logs -f moodle-web
+
+# Rodar CLI do Moodle
+docker exec -it moodle-web php /var/www/html/admin/cli/cron.php
+
+# Recriar containers do zero
+docker-compose down -v && docker-compose up -d --build
+```
+
+---
+
+## Licença
+
+Este projeto é uma customização do [Moodle](https://moodle.org), distribuído sob a [GNU GPL v3](https://moodledev.io/general/license). As customizações Parvi seguem a mesma licença.
