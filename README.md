@@ -136,6 +136,35 @@ docker-compose down -v && docker-compose up -d --build
 
 ---
 
+## 🗄️ Banco de Dados e Inicialização (Seed)
+
+O projeto usa um arquivo de inicialização estática em `db-init/seed.sql` (~13MB) para que o ambiente local suba já configurado, sem precisar reconfigurar o Moodle do zero a cada novo `docker compose up`.
+
+O arquivo armazena:
+* **Identidade Visual:** Ativação e configurações customizadas do tema **Moove** (cores institucionais, CSS e comportamento de blocos).
+* **Campos Customizados:** Estrutura de perfil necessária para a integração com o middleware (ex: campo `cargo`).
+
+> O seed **não contém dados sensíveis** — usuários, cursos, matrículas e logs são expurgados antes de ser versionado (veja os comandos abaixo).
+
+### 🔄 Como gerar um novo Seed Higienizado
+Caso você faça alterações estruturais na identidade visual ou configurações do Moodle e precise atualizar o `seed.sql` para o time, utilize o fluxo seguro abaixo direto no terminal:
+
+```bash
+# 1. Remove cursos e estruturas de aula fictícias
+docker exec -i moodle-db mysql -u root -p"root" moodle -e "DELETE FROM mdl_course WHERE id > 1; TRUNCATE TABLE mdl_course_sections; TRUNCATE TABLE mdl_course_modules; TRUNCATE TABLE mdl_course_modules_completion;"
+
+# 2. Remove usuários de teste (preserva apenas Guest e Admin)
+docker exec -i moodle-db mysql -u root -p"root" moodle -e "DELETE FROM mdl_user WHERE id > 2; TRUNCATE TABLE mdl_user_enrolments;"
+
+# 3. Exporta o dump sanitizado aplicando permissão de escrita
+docker exec -i moodle-db mysqldump -u root -p"root" moodle | sudo tee moodle-ead/db-init/seed.sql > /dev/null
+
+# 4. Ajusta a propriedade do arquivo para o seu usuário do Linux (evita travas no Git)
+sudo chown $(whoami):$(whoami) moodle-ead/db-init/seed.sql
+```
+
+---
+
 ## Licença
 
 Este projeto é uma customização do [Moodle](https://moodle.org), distribuído sob a [GNU GPL v3](https://moodledev.io/general/license). As customizações Parvi seguem a mesma licença.
